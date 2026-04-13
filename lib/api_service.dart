@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = "http://10.55.141.15:5000"; // 🔥 change if needed
+  static const String baseUrl = "https://skindisease-api-tc30.onrender.com"; // 🔥 change if needed
 
   static Future<Map<String, dynamic>> predict(File imageFile) async {
     var request = http.MultipartRequest(

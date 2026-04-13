@@ -101,7 +101,7 @@ class SGCM(nn.Module):
 
         from torchvision.models import MobileNet_V3_Small_Weights
         backbone = torchvision.models.mobilenet_v3_small(
-            weights=MobileNet_V3_Small_Weights.DEFAULT
+            weights=None
         )
 
         self.features = backbone.features
