@@ -9,10 +9,18 @@ import cv2
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-DATA_PATH = r"C:\GOKUL\CIP\Datasets"
+# ======================
+# CLASS NAMES (IMPORTANT)
+# ======================
+class_names = [
+    "Acne Vulgaris",
+    "Clear Skin",
+    "Dermatitis",
+    "Fungal Infection"
+]
 
 # ======================
-# MODEL (MATCH TRAINING EXACTLY)
+# MODEL
 # ======================
 class GhostModule(nn.Module):
     def __init__(self, in_channels, out_channels, ratio=2):
@@ -102,7 +110,6 @@ class SGCM(nn.Module):
 
         self.classifier = nn.Linear(576, num_classes)
 
-        # ✅ IMPORTANT: same as training
         self.severity_head = nn.Sequential(
             nn.Linear(576, 256),
             nn.ReLU(),
@@ -126,17 +133,13 @@ class SGCM(nn.Module):
 # ======================
 # LOAD MODEL
 # ======================
-from torchvision.datasets import ImageFolder
-dataset = ImageFolder(DATA_PATH)
-class_names = dataset.classes
-
 model = SGCM(len(class_names)).to(device)
 
-# ✅ STRICT TRUE (now works)
-model.load_state_dict(torch.load("sgcm_best.pth", map_location=device), strict=True)
+model.load_state_dict(torch.load("sgcm_best.pth", map_location=device))
 model.eval()
 
 print("✅ Model loaded correctly")
+
 
 # ======================
 # TRANSFORM
@@ -148,8 +151,9 @@ transform = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
+
 # ======================
-# SEVERITY FROM IMAGE
+# SEVERITY
 # ======================
 def compute_severity_from_image(image_pil):
     img = np.array(image_pil.convert("RGB"))
@@ -188,61 +192,3 @@ def compute_severity_from_image(image_pil):
         return "Moderate"
     else:
         return "Severe"
-
-
-# ======================
-# PREDICTION FUNCTION
-# ======================
-def predict_image(image_path):
-    image = Image.open(image_path).convert("RGB")
-
-    input_tensor = transform(image).unsqueeze(0).to(device)
-
-    with torch.no_grad():
-        class_out, _ = model(input_tensor)  # ignore sev_out
-        probs = torch.softmax(class_out, dim=1)
-        conf, pred = torch.max(probs, 1)
-
-    confidence = conf.item()
-    disease = class_names[pred.item()]
-
-    print("\n===== RESULT =====")
-    print("Disease:", disease)
-    print("Confidence:", round(confidence, 4))
-
-    if "clear" not in disease.lower():
-        severity_label = compute_severity_from_image(image)
-        print("Severity Level:", severity_label)
-        return disease, severity_label
-    else:
-        return disease, None
-
-
-# ======================
-# EXPORT FOR MOBILE
-# ======================
-class MobileModel(nn.Module):
-    def __init__(self, base_model):
-        super().__init__()
-        self.base = base_model
-
-    def forward(self, x):
-        class_out, _ = self.base(x)
-        return class_out  # ONLY classification
-
-
-mobile_model = MobileModel(model).to(device)
-mobile_model.eval()
-
-dummy = torch.randn(1, 3, 224, 224).to(device)
-traced = torch.jit.trace(mobile_model, dummy)
-traced.save("sgcm_mobile.pt")
-
-print("✅ Mobile model exported successfully")
-
-
-# ======================
-# MAIN
-# ======================
-if __name__ == "__main__":
-    predict_image("acne3.jpg")
